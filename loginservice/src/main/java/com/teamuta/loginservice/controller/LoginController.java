@@ -18,7 +18,7 @@ public class LoginController {
     @PostMapping("/login")
     public String login(@RequestBody LoginRequest request) {
         if ("admin".equals(request.getUsername()) && "password".equals(request.getPassword())) {
-            return "Login successful!";
+            return "1";
         } else {
             return "Invalid username or password.";
         }
