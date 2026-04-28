@@ -1,0 +1,41 @@
+package com.teamuta.loginservice.repository;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+
+@Repository
+public class LoginRepository {
+
+	private final JdbcTemplate jdbc;
+
+	public LoginRepository(JdbcTemplate jdbc) {
+		this.jdbc = jdbc;
+	}
+
+	public boolean existsByUsername(String username) {
+		Integer count = jdbc.queryForObject(
+				"SELECT COUNT(*) FROM users WHERE email = ?",
+				Integer.class,
+				username
+		);
+		return count != null && count > 0;
+	}
+
+	public void saveUser(String userId, String email, String passwordHash, LocalDateTime createdAt) {
+		jdbc.update(
+				"INSERT INTO users (user_id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
+				userId, email, email, passwordHash, Timestamp.valueOf(createdAt)
+		);
+	}
+
+	public void saveOutboxEvent(String eventId, String aggregateType, String aggregateId, String eventType, String payload, String status, long createdAtMillis) {
+		jdbc.update(
+				"INSERT INTO outbox_event (event_id, aggregate_type, aggregate_id, event_type, payload, status, created_at, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",
+				eventId, aggregateType, aggregateId, eventType, payload, status, createdAtMillis
+		);
+	}
+
+}

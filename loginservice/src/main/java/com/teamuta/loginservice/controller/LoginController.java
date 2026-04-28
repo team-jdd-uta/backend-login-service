@@ -2,6 +2,7 @@ package com.teamuta.loginservice.controller;
 
 import com.teamuta.loginservice.dto.LoginRequest;
 import com.teamuta.loginservice.dto.LoginResponse;
+import com.teamuta.loginservice.service.LoginService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,9 +19,23 @@ curl -X POST http://localhost:8081/login \
 
 @RestController
 public class LoginController {
+    private final LoginService loginService;
+
+    public LoginController(LoginService loginService) {
+        this.loginService = loginService;
+    }
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
         LoginResponse.User user = new LoginResponse.User("admin", request.getUsername());
         return ResponseEntity.ok(new LoginResponse(true, user));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<LoginResponse> register(@RequestBody LoginRequest request) {
+        LoginResponse.User user = loginService.register(request.getUsername(), request.getPassword());
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new LoginResponse(false, null));
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(new LoginResponse(true, user));
     }
 }
