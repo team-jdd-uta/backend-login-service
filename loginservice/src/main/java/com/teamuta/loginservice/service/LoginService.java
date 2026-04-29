@@ -10,8 +10,8 @@ import com.teamuta.loginservice.dto.UserRegisteredEvent;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class LoginService {
