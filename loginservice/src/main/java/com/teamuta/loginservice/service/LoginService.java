@@ -5,18 +5,23 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.teamuta.loginservice.repository.LoginRepository;
 import com.teamuta.loginservice.dto.LoginResponse;
+import com.teamuta.loginservice.dto.UserRegisteredEvent;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class LoginService {
     private final LoginRepository loginRepository;
+    private final ObjectMapper objectMapper;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    public LoginService(LoginRepository loginRepository) {
+    public LoginService(LoginRepository loginRepository, ObjectMapper objectMapper) {
         this.loginRepository = loginRepository;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
@@ -33,10 +38,9 @@ public class LoginService {
         // save user
         loginRepository.saveUser(userId, username, passwordHash, now);
 
-        // create outbox event payload (simple JSON)
         String eventId = UUID.randomUUID().toString();
-        String payload = String.format("{\"eventId\":\"%s\",\"userId\":\"%s\",\"email\":\"%s\",\"name\":\"%s\",\"occurredAt\":%d,\"eventVersion\":1}",
-            eventId, userId, username, username, nowMillis);
+        UserRegisteredEvent event = new UserRegisteredEvent(eventId, userId, username, username, nowMillis, 1);
+        String payload = serializeEvent(event);
 
         loginRepository.saveOutboxEvent(eventId, "user", userId, "UserRegistered", payload, "PENDING", nowMillis);
 
@@ -47,4 +51,11 @@ public class LoginService {
         return loginRepository.existsByUsername(username);
     }
 
+    private String serializeEvent(UserRegisteredEvent event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException("Failed to serialize user registered event", exception);
+        }
+    }
 }
