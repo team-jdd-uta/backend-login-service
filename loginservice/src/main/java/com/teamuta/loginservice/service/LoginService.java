@@ -17,11 +17,13 @@ import tools.jackson.databind.ObjectMapper;
 public class LoginService {
     private final LoginRepository loginRepository;
     private final ObjectMapper objectMapper;
+    private final CognitoAuthService cognitoAuthService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    public LoginService(LoginRepository loginRepository, ObjectMapper objectMapper) {
+    public LoginService(LoginRepository loginRepository, ObjectMapper objectMapper, CognitoAuthService cognitoAuthService) {
         this.loginRepository = loginRepository;
         this.objectMapper = objectMapper;
+        this.cognitoAuthService = cognitoAuthService;
     }
 
     @Transactional
@@ -30,25 +32,47 @@ public class LoginService {
             return null; // already exists
         }
 
-        String userId = UUID.randomUUID().toString();
-        LocalDateTime now = LocalDateTime.now();
-        long nowMillis = System.currentTimeMillis();
-        String passwordHash = passwordEncoder.encode(password);
+        boolean cognitoUserCreated = false;
+        try {
+            cognitoAuthService.createUser(username, password);
+            cognitoUserCreated = true;
 
-        // save user
-        loginRepository.saveUser(userId, username, passwordHash, now);
+            String userId = UUID.randomUUID().toString();
+            LocalDateTime now = LocalDateTime.now();
+            long nowMillis = System.currentTimeMillis();
+            String passwordHash = passwordEncoder.encode(password);
 
-        String eventId = UUID.randomUUID().toString();
-        UserRegisteredEvent event = new UserRegisteredEvent(eventId, userId, username, username, nowMillis, 1);
-        String payload = serializeEvent(event);
+            loginRepository.saveUser(userId, username, passwordHash, now);
 
-        loginRepository.saveOutboxEvent(eventId, "user", userId, "UserRegistered", payload, "PENDING", nowMillis);
+            String eventId = UUID.randomUUID().toString();
+            UserRegisteredEvent event = new UserRegisteredEvent(eventId, userId, username, username, nowMillis, 1);
+            String payload = serializeEvent(event);
 
-        return new LoginResponse.User(userId, username);
+            loginRepository.saveOutboxEvent(eventId, "user", userId, "UserRegistered", payload, "PENDING", nowMillis);
+
+            return new LoginResponse.User(userId, username);
+        } catch (RuntimeException exception) {
+            if (cognitoUserCreated) {
+                cognitoAuthService.deleteUser(username);
+            }
+            throw exception;
+        }
     }
 
     public boolean exists(String username) {
         return loginRepository.existsByUsername(username);
+    }
+
+    public LoginResponse login(String username, String password) {
+        CognitoAuthService.AuthTokens authTokens = cognitoAuthService.login(username, password);
+        LoginRepository.UserRecord user = loginRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalStateException("Local user does not exist for authenticated Cognito account"));
+        return new LoginResponse(
+                true,
+                new LoginResponse.User(user.id(), user.username()),
+                new LoginResponse.Tokens(authTokens.accessToken(), authTokens.idToken(), authTokens.refreshToken(), authTokens.expiresIn()),
+                null
+        );
     }
 
     private String serializeEvent(UserRegisteredEvent event) {
