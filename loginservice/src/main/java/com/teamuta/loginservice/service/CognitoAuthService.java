@@ -12,6 +12,8 @@ import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminSetUse
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AuthFlowType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AuthenticationResultType;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.MessageActionType;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.NotAuthorizedException;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.UserNotFoundException;
 
 import java.util.Map;
 
@@ -62,15 +64,20 @@ public class CognitoAuthService {
 
     public AuthTokens login(String username, String password) {
         assertConfigured();
-        AuthenticationResultType result = cognitoClient.adminInitiateAuth(AdminInitiateAuthRequest.builder()
-                .userPoolId(userPoolId)
-                .clientId(clientId)
-                .authFlow(AuthFlowType.ADMIN_USER_PASSWORD_AUTH)
-                .authParameters(Map.of(
-                        "USERNAME", username,
-                        "PASSWORD", password
-                ))
-                .build()).authenticationResult();
+        AuthenticationResultType result;
+        try {
+            result = cognitoClient.adminInitiateAuth(AdminInitiateAuthRequest.builder()
+                    .userPoolId(userPoolId)
+                    .clientId(clientId)
+                    .authFlow(AuthFlowType.ADMIN_USER_PASSWORD_AUTH)
+                    .authParameters(Map.of(
+                            "USERNAME", username,
+                            "PASSWORD", password
+                    ))
+                    .build()).authenticationResult();
+        } catch (NotAuthorizedException | UserNotFoundException exception) {
+            throw new LoginService.LoginFailureException("가입되지 않았거나 비밀번호가 올바르지 않습니다.", exception);
+        }
 
         return new AuthTokens(result.accessToken(), result.idToken(), result.refreshToken(), result.expiresIn());
     }

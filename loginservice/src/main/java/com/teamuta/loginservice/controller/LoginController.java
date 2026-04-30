@@ -3,6 +3,7 @@ package com.teamuta.loginservice.controller;
 import com.teamuta.loginservice.dto.LoginRequest;
 import com.teamuta.loginservice.dto.LoginResponse;
 import com.teamuta.loginservice.service.LoginService;
+import com.teamuta.loginservice.service.LoginService.LoginFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,6 +29,9 @@ public class LoginController {
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
         try {
             return ResponseEntity.ok(loginService.login(request.getUsername(), request.getPassword()));
+        } catch (LoginFailureException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginResponse(false, null, exception.getMessage()));
         } catch (RuntimeException exception) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new LoginResponse(false, null, "로그인에 실패했습니다."));

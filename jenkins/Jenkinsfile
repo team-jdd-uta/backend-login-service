@@ -15,6 +15,16 @@ spec:
       env:
         - name: AWS_SDK_LOAD_CONFIG
           value: "true"
+    - name: gradle
+      image: gradle:8.14.4-jdk21-alpine
+      command:
+        - cat
+      tty: true
+    - name: git
+      image: alpine/git:2.47.2
+      command:
+        - cat
+      tty: true
 """
     }
   }
@@ -42,7 +52,11 @@ spec:
     DOCKERFILE = 'loginservice/Dockerfile'
     PLATFORM = 'linux/amd64'
     TEST_COMMAND = 'cd loginservice && ./gradlew test'
-    DEPLOY_TARGET = 'TODO_ARGOCD_APP_OR_MANIFEST_REPO'
+    GIT_CREDENTIALS_ID = 'github-scm'
+    GITOPS_REPO_URL = 'https://github.com/team-jdd-uta/gitops.git'
+    GITOPS_BRANCH = 'main'
+    GITOPS_APP_FILE = 'bootstrap/root/applications/backend-login-service.yaml'
+    ARGOCD_APP_NAME = 'backend-login-service-dev'
   }
 
   stages {
@@ -72,7 +86,9 @@ spec:
     stage('Test') {
       when { expression { return params.RUN_TESTS } }
       steps {
-        sh "${env.TEST_COMMAND}"
+        container('gradle') {
+          sh "${env.TEST_COMMAND}"
+        }
       }
     }
 
@@ -122,8 +138,37 @@ spec:
         }
       }
       steps {
-        echo 'TODO: manifest repo image tag update 또는 ArgoCD sync를 여기에 연결하세요.'
-        echo "TODO target: ${env.DEPLOY_TARGET}"
+        container('git') {
+          withCredentials([usernamePassword(credentialsId: env.GIT_CREDENTIALS_ID, usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_TOKEN')]) {
+            sh '''
+              set -eu
+              rm -rf gitops
+              git clone --branch "$GITOPS_BRANCH" "https://${GIT_USERNAME}:${GIT_TOKEN}@${GITOPS_REPO_URL#https://}" gitops
+              cd gitops
+              git config user.email "jenkins@team9.cloud.skala-ai.com"
+              git config user.name "team9 Jenkins"
+
+              tmp_file="$(mktemp)"
+              awk -v tag="$RESOLVED_IMAGE_TAG" '
+                !updated && /^[[:space:]]+tag:/ {
+                  sub(/tag:.*/, "tag: " tag)
+                  updated = 1
+                }
+                { print }
+              ' "$GITOPS_APP_FILE" > "$tmp_file"
+              mv "$tmp_file" "$GITOPS_APP_FILE"
+
+              if git diff --quiet -- "$GITOPS_APP_FILE"; then
+                echo "GitOps manifest already points at $RESOLVED_IMAGE_TAG"
+              else
+                git add "$GITOPS_APP_FILE"
+                git commit -m "deploy: ${ARGOCD_APP_NAME} ${RESOLVED_IMAGE_TAG}"
+                git pull --rebase origin "$GITOPS_BRANCH"
+                git push origin "HEAD:$GITOPS_BRANCH"
+              fi
+            '''
+          }
+        }
       }
     }
   }
