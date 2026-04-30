@@ -66,13 +66,23 @@ public class LoginService {
     public LoginResponse login(String username, String password) {
         CognitoAuthService.AuthTokens authTokens = cognitoAuthService.login(username, password);
         LoginRepository.UserRecord user = loginRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalStateException("Local user does not exist for authenticated Cognito account"));
+                .orElseThrow(() -> new LoginFailureException("계정 정보가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요."));
         return new LoginResponse(
                 true,
                 new LoginResponse.User(user.id(), user.username()),
                 new LoginResponse.Tokens(authTokens.accessToken(), authTokens.idToken(), authTokens.refreshToken(), authTokens.expiresIn()),
                 null
         );
+    }
+
+    public static class LoginFailureException extends RuntimeException {
+        public LoginFailureException(String message) {
+            super(message);
+        }
+
+        public LoginFailureException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
     private String serializeEvent(UserRegisteredEvent event) {

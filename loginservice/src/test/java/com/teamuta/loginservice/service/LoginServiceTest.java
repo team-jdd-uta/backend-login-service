@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.teamuta.loginservice.dto.LoginResponse;
+import com.teamuta.loginservice.service.LoginService.LoginFailureException;
 import com.teamuta.loginservice.repository.LoginRepository;
 import com.teamuta.loginservice.repository.LoginRepository.UserRecord;
 import tools.jackson.databind.ObjectMapper;
@@ -75,5 +76,17 @@ class LoginServiceTest {
         assertThat(response.success()).isTrue();
         assertThat(response.user()).isEqualTo(new LoginResponse.User("user-1", "member1"));
         assertThat(response.tokens()).isEqualTo(new LoginResponse.Tokens("access-token", "id-token", "refresh-token", 3600));
+    }
+
+    @Test
+    void loginReportsMissingLocalUserAsAccountSetupProblem() {
+        LoginService loginService = new LoginService(loginRepository, objectMapper, cognitoAuthService);
+        CognitoAuthService.AuthTokens authTokens = new CognitoAuthService.AuthTokens("access-token", "id-token", "refresh-token", 3600);
+        when(cognitoAuthService.login("member1", "Password123!")).thenReturn(authTokens);
+        when(loginRepository.findByUsername("member1")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> loginService.login("member1", "Password123!"))
+                .isInstanceOf(LoginFailureException.class)
+                .hasMessage("계정 정보가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
     }
 }
