@@ -60,7 +60,11 @@ spec:
             : sh(returnStdout: true, script: 'git rev-parse --short=12 HEAD').trim()
           env.ECR_REGISTRY = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com"
           env.IMAGE_REF = "${env.ECR_REGISTRY}/${env.IMAGE_PREFIX}${env.IMAGE_NAME}:${env.RESOLVED_IMAGE_TAG}"
+          env.LATEST_IMAGE_REF = "${env.ECR_REGISTRY}/${env.IMAGE_PREFIX}${env.IMAGE_NAME}:latest"
+          env.IS_MAIN_BUILD = ((env.BRANCH_NAME == 'main') || (env.GIT_BRANCH == 'origin/main')).toString()
           echo "Image: ${env.IMAGE_REF}"
+          echo "Latest image: ${env.LATEST_IMAGE_REF}"
+          echo "Main build: ${env.IS_MAIN_BUILD}"
         }
       }
     }
@@ -91,7 +95,7 @@ spec:
     stage('Main Image Push') {
       when {
         allOf {
-          branch 'main'
+          expression { return env.IS_MAIN_BUILD == 'true' }
           expression { return params.PUSH_IMAGE }
         }
       }
@@ -103,6 +107,7 @@ spec:
               --dockerfile "$WORKSPACE/$DOCKERFILE" \
               --custom-platform "$PLATFORM" \
               --destination "$IMAGE_REF" \
+              --destination "$LATEST_IMAGE_REF" \
               --cache=false
           '''
         }
@@ -112,7 +117,7 @@ spec:
     stage('Deploy') {
       when {
         allOf {
-          branch 'main'
+          expression { return env.IS_MAIN_BUILD == 'true' }
           expression { return params.DEPLOY }
         }
       }
