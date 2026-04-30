@@ -24,6 +24,7 @@ dependencies {
 	implementation 'org.mariadb.jdbc:mariadb-java-client'
 	implementation 'org.springframework.security:spring-security-crypto'
 	implementation 'software.amazon.awssdk:cognitoidentityprovider:2.32.30'
+	implementation 'software.amazon.awssdk:sts:2.32.30'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
