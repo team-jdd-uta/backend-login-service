@@ -26,16 +26,25 @@ public class LoginController {
     }
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-        LoginResponse.User user = new LoginResponse.User("admin", request.getUsername());
-        return ResponseEntity.ok(new LoginResponse(true, user));
+        try {
+            return ResponseEntity.ok(loginService.login(request.getUsername(), request.getPassword()));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginResponse(false, null, "로그인에 실패했습니다."));
+        }
     }
 
     @PostMapping("/register")
     public ResponseEntity<LoginResponse> register(@RequestBody LoginRequest request) {
-        LoginResponse.User user = loginService.register(request.getUsername(), request.getPassword());
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new LoginResponse(false, null));
+        try {
+            LoginResponse.User user = loginService.register(request.getUsername(), request.getPassword());
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(new LoginResponse(false, null, "이미 존재하는 계정입니다."));
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(new LoginResponse(true, user));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new LoginResponse(false, null, "회원가입에 실패했습니다."));
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(new LoginResponse(true, user));
     }
 }

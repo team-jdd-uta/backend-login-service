@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Repository
 public class LoginRepository {
@@ -38,4 +39,14 @@ public class LoginRepository {
 		);
 	}
 
+	public Optional<UserRecord> findByUsername(String username) {
+		return jdbc.query(
+				"SELECT user_id, email FROM users WHERE email = ?",
+				(rs, rowNum) -> new UserRecord(rs.getString("user_id"), rs.getString("email")),
+				username
+		).stream().findFirst();
+	}
+
+	public record UserRecord(String id, String username) {
+	}
 }
