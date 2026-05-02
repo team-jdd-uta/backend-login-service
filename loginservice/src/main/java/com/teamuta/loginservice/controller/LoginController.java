@@ -6,6 +6,7 @@ import com.teamuta.loginservice.service.LoginService;
 import com.teamuta.loginservice.service.LoginService.LoginFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,5 +51,10 @@ public class LoginController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new LoginResponse(false, null, "회원가입에 실패했습니다."));
         }
+    }
+
+    @PostMapping("/logout/{userId}")
+    public ResponseEntity<Void> logout(@PathVariable String userId) {
+        return ResponseEntity.ok().build();
     }
 }
