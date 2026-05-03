@@ -25,10 +25,10 @@ public class LoginRepository {
 		return count != null && count > 0;
 	}
 
-	public void saveUser(String userId, String email, String passwordHash, LocalDateTime createdAt) {
+	public void saveUser(String userId, String email, String cognitoSub, String passwordHash, LocalDateTime createdAt) {
 		jdbc.update(
-				"INSERT INTO users (user_id, email, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?)",
-				userId, email, email, passwordHash, Timestamp.valueOf(createdAt)
+				"INSERT INTO users (user_id, email, cognito_sub, name, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+				userId, email, cognitoSub, email, passwordHash, Timestamp.valueOf(createdAt)
 		);
 	}
 
@@ -41,12 +41,20 @@ public class LoginRepository {
 
 	public Optional<UserRecord> findByUsername(String username) {
 		return jdbc.query(
-				"SELECT user_id, email FROM users WHERE email = ?",
-				(rs, rowNum) -> new UserRecord(rs.getString("user_id"), rs.getString("email")),
+				"SELECT user_id, email, cognito_sub FROM users WHERE email = ?",
+				(rs, rowNum) -> new UserRecord(rs.getString("user_id"), rs.getString("email"), rs.getString("cognito_sub")),
 				username
 		).stream().findFirst();
 	}
 
-	public record UserRecord(String id, String username) {
+	public Optional<UserRecord> findByCognitoSub(String cognitoSub) {
+		return jdbc.query(
+				"SELECT user_id, email, cognito_sub FROM users WHERE cognito_sub = ?",
+				(rs, rowNum) -> new UserRecord(rs.getString("user_id"), rs.getString("email"), rs.getString("cognito_sub")),
+				cognitoSub
+		).stream().findFirst();
+	}
+
+	public record UserRecord(String id, String username, String cognitoSub) {
 	}
 }

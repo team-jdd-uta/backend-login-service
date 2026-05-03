@@ -34,7 +34,7 @@ public class LoginService {
 
         boolean cognitoUserCreated = false;
         try {
-            cognitoAuthService.createUser(username, password);
+            String cognitoSub = cognitoAuthService.createUser(username, password);
             cognitoUserCreated = true;
 
             String userId = UUID.randomUUID().toString();
@@ -42,10 +42,10 @@ public class LoginService {
             long nowMillis = System.currentTimeMillis();
             String passwordHash = passwordEncoder.encode(password);
 
-            loginRepository.saveUser(userId, username, passwordHash, now);
+            loginRepository.saveUser(userId, username, cognitoSub, passwordHash, now);
 
             String eventId = UUID.randomUUID().toString();
-            UserRegisteredEvent event = new UserRegisteredEvent(eventId, userId, username, username, nowMillis, 1);
+            UserRegisteredEvent event = new UserRegisteredEvent(eventId, userId, cognitoSub, username, username, nowMillis, 2);
             String payload = serializeEvent(event);
 
             loginRepository.saveOutboxEvent(eventId, "user", userId, "UserRegistered", payload, "PENDING", nowMillis);
@@ -63,6 +63,13 @@ public class LoginService {
         return loginRepository.existsByUsername(username);
     }
 
+    public java.util.Optional<LoginRepository.UserRecord> findByCognitoSub(String cognitoSub) {
+        if (cognitoSub == null || cognitoSub.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return loginRepository.findByCognitoSub(cognitoSub.trim());
+    }
+
     public LoginResponse login(String username, String password) {
         CognitoAuthService.AuthTokens authTokens = cognitoAuthService.login(username, password);
         LoginRepository.UserRecord user = loginRepository.findByUsername(username)
@@ -70,6 +77,16 @@ public class LoginService {
         return new LoginResponse(
                 true,
                 new LoginResponse.User(user.id(), user.username()),
+                new LoginResponse.Tokens(authTokens.accessToken(), authTokens.idToken(), authTokens.refreshToken(), authTokens.expiresIn()),
+                null
+        );
+    }
+
+    public LoginResponse refresh(String refreshToken) {
+        CognitoAuthService.AuthTokens authTokens = cognitoAuthService.refresh(refreshToken);
+        return new LoginResponse(
+                true,
+                null,
                 new LoginResponse.Tokens(authTokens.accessToken(), authTokens.idToken(), authTokens.refreshToken(), authTokens.expiresIn()),
                 null
         );
