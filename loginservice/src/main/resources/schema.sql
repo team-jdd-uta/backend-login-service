@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS cognito_sub VARCHAR(64) NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cognito_sub ON users (cognito_sub);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_name ON users (name);
 
 CREATE TABLE IF NOT EXISTS outbox_event (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,

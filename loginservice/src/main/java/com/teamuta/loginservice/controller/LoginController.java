@@ -3,6 +3,7 @@ package com.teamuta.loginservice.controller;
 import com.teamuta.loginservice.dto.LoginRequest;
 import com.teamuta.loginservice.dto.LoginResponse;
 import com.teamuta.loginservice.dto.InternalUserResponse;
+import com.teamuta.loginservice.dto.RegisterRequest;
 import com.teamuta.loginservice.dto.RefreshTokenRequest;
 import com.teamuta.loginservice.service.LoginService;
 import com.teamuta.loginservice.service.LoginService.LoginFailureException;
@@ -48,9 +49,9 @@ public class LoginController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<LoginResponse> register(@RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> register(@RequestBody RegisterRequest request) {
         try {
-            LoginResponse.User user = loginService.register(request.getUsername(), request.getPassword());
+            LoginResponse.User user = loginService.register(request.getEmail(), request.getNickname(), request.getPassword());
             if (user == null) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(new LoginResponse(false, null, "이미 존재하는 계정입니다."));
             }
@@ -83,7 +84,7 @@ public class LoginController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return loginService.findByCognitoSub(sub)
-                .map(user -> ResponseEntity.ok(new InternalUserResponse(user.id(), user.username(), user.username())))
+                .map(user -> ResponseEntity.ok(new InternalUserResponse(user.id(), user.name(), user.email())))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

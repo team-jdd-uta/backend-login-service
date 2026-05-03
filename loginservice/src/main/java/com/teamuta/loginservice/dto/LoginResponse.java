@@ -9,7 +9,10 @@ public record LoginResponse(boolean success, User user, Tokens tokens, String me
         this(success, user, null, message);
     }
 
-    public record User(String id, String username) {
+    public record User(String id, String username, String email) {
+        public User(String id, String username) {
+            this(id, username, null);
+        }
     }
 
     public record Tokens(String accessToken, String idToken, String refreshToken, Integer expiresIn) {
