@@ -27,14 +27,24 @@ public class LoginService {
     }
 
     @Transactional
-    public LoginResponse.User register(String username, String password) {
-        if (loginRepository.existsByUsername(username)) {
+    public LoginResponse.User register(String email, String nickname, String password) {
+        String trimmedEmail = email == null ? "" : email.trim();
+        String trimmedNickname = nickname == null ? "" : nickname.trim();
+
+        if (trimmedEmail.isBlank() || trimmedNickname.isBlank() || password == null || password.isBlank()) {
+            throw new IllegalArgumentException("email, nickname, password are required");
+        }
+
+        if (loginRepository.existsByEmail(trimmedEmail)) {
             return null; // already exists
+        }
+        if (loginRepository.existsByNickname(trimmedNickname)) {
+            return null;
         }
 
         boolean cognitoUserCreated = false;
         try {
-            String cognitoSub = cognitoAuthService.createUser(username, password);
+            String cognitoSub = cognitoAuthService.createUser(trimmedEmail, password);
             cognitoUserCreated = true;
 
             String userId = UUID.randomUUID().toString();
@@ -42,18 +52,18 @@ public class LoginService {
             long nowMillis = System.currentTimeMillis();
             String passwordHash = passwordEncoder.encode(password);
 
-            loginRepository.saveUser(userId, username, cognitoSub, passwordHash, now);
+            loginRepository.saveUser(userId, trimmedEmail, cognitoSub, trimmedNickname, passwordHash, now);
 
             String eventId = UUID.randomUUID().toString();
-            UserRegisteredEvent event = new UserRegisteredEvent(eventId, userId, cognitoSub, username, username, nowMillis, 2);
+            UserRegisteredEvent event = new UserRegisteredEvent(eventId, userId, cognitoSub, trimmedEmail, trimmedNickname, nowMillis, 2);
             String payload = serializeEvent(event);
 
             loginRepository.saveOutboxEvent(eventId, "user", userId, "UserRegistered", payload, "PENDING", nowMillis);
 
-            return new LoginResponse.User(userId, username);
+            return new LoginResponse.User(userId, trimmedNickname, trimmedEmail);
         } catch (RuntimeException exception) {
             if (cognitoUserCreated) {
-                cognitoAuthService.deleteUser(username);
+                cognitoAuthService.deleteUser(trimmedEmail);
             }
             throw exception;
         }
@@ -72,11 +82,11 @@ public class LoginService {
 
     public LoginResponse login(String username, String password) {
         CognitoAuthService.AuthTokens authTokens = cognitoAuthService.login(username, password);
-        LoginRepository.UserRecord user = loginRepository.findByUsername(username)
+        LoginRepository.UserRecord user = loginRepository.findByEmail(username)
                 .orElseThrow(() -> new LoginFailureException("계정 정보가 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요."));
         return new LoginResponse(
                 true,
-                new LoginResponse.User(user.id(), user.username()),
+                new LoginResponse.User(user.id(), user.name(), user.email()),
                 new LoginResponse.Tokens(authTokens.accessToken(), authTokens.idToken(), authTokens.refreshToken(), authTokens.expiresIn()),
                 null
         );
