@@ -3,6 +3,7 @@ package com.teamuta.loginservice.controller;
 import com.teamuta.loginservice.dto.LoginRequest;
 import com.teamuta.loginservice.dto.LoginResponse;
 import com.teamuta.loginservice.dto.InternalUserResponse;
+import com.teamuta.loginservice.dto.RefreshTokenRequest;
 import com.teamuta.loginservice.service.LoginService;
 import com.teamuta.loginservice.service.LoginService.LoginFailureException;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,6 +58,16 @@ public class LoginController {
         } catch (RuntimeException exception) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new LoginResponse(false, null, "회원가입에 실패했습니다."));
+        }
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refresh(@RequestBody RefreshTokenRequest request) {
+        try {
+            return ResponseEntity.ok(loginService.refresh(request.refreshToken()));
+        } catch (LoginFailureException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginResponse(false, null, exception.getMessage()));
         }
     }
 

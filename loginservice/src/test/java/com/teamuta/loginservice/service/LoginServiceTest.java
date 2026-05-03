@@ -94,6 +94,19 @@ class LoginServiceTest {
     }
 
     @Test
+    void refreshReturnsNewCognitoTokensWithoutRequiringLocalUserLookup() {
+        LoginService loginService = new LoginService(loginRepository, objectMapper, cognitoAuthService);
+        CognitoAuthService.AuthTokens authTokens = new CognitoAuthService.AuthTokens("new-access-token", "new-id-token", "refresh-token", 3600);
+        when(cognitoAuthService.refresh("refresh-token")).thenReturn(authTokens);
+
+        LoginResponse response = loginService.refresh("refresh-token");
+
+        assertThat(response.success()).isTrue();
+        assertThat(response.user()).isNull();
+        assertThat(response.tokens()).isEqualTo(new LoginResponse.Tokens("new-access-token", "new-id-token", "refresh-token", 3600));
+    }
+
+    @Test
     void loginReportsMissingLocalUserAsAccountSetupProblem() {
         LoginService loginService = new LoginService(loginRepository, objectMapper, cognitoAuthService);
         CognitoAuthService.AuthTokens authTokens = new CognitoAuthService.AuthTokens("access-token", "id-token", "refresh-token", 3600);

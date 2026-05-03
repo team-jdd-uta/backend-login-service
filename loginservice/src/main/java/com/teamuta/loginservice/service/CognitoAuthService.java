@@ -99,6 +99,27 @@ public class CognitoAuthService {
         return new AuthTokens(result.accessToken(), result.idToken(), result.refreshToken(), result.expiresIn());
     }
 
+    public AuthTokens refresh(String refreshToken) {
+        assertConfigured();
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new LoginService.LoginFailureException("refresh token이 필요합니다.");
+        }
+
+        AuthenticationResultType result;
+        try {
+            result = cognitoClient.adminInitiateAuth(AdminInitiateAuthRequest.builder()
+                    .userPoolId(userPoolId)
+                    .clientId(clientId)
+                    .authFlow(AuthFlowType.REFRESH_TOKEN_AUTH)
+                    .authParameters(Map.of("REFRESH_TOKEN", refreshToken))
+                    .build()).authenticationResult();
+        } catch (NotAuthorizedException | UserNotFoundException exception) {
+            throw new LoginService.LoginFailureException("refresh token이 만료되었거나 올바르지 않습니다.", exception);
+        }
+
+        return new AuthTokens(result.accessToken(), result.idToken(), refreshToken, result.expiresIn());
+    }
+
     private void assertConfigured() {
         if (userPoolId == null || userPoolId.isBlank() || clientId == null || clientId.isBlank()) {
             throw new IllegalStateException("Cognito user pool and client id must be configured");

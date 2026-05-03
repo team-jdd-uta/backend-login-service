@@ -82,6 +82,16 @@ public class LoginService {
         );
     }
 
+    public LoginResponse refresh(String refreshToken) {
+        CognitoAuthService.AuthTokens authTokens = cognitoAuthService.refresh(refreshToken);
+        return new LoginResponse(
+                true,
+                null,
+                new LoginResponse.Tokens(authTokens.accessToken(), authTokens.idToken(), authTokens.refreshToken(), authTokens.expiresIn()),
+                null
+        );
+    }
+
     public static class LoginFailureException extends RuntimeException {
         public LoginFailureException(String message) {
             super(message);
