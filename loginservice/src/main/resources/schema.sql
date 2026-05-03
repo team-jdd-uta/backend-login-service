@@ -1,10 +1,14 @@
 CREATE TABLE IF NOT EXISTS users (
     user_id VARCHAR(36) PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
+    cognito_sub VARCHAR(64) NULL,
     name VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS cognito_sub VARCHAR(64) NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cognito_sub ON users (cognito_sub);
 
 CREATE TABLE IF NOT EXISTS outbox_event (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,

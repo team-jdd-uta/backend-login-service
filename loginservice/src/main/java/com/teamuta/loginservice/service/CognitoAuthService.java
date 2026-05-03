@@ -6,7 +6,9 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserResponse;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDeleteUserRequest;
+import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminGetUserRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminInitiateAuthRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminSetUserPasswordRequest;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.AuthFlowType;
@@ -38,9 +40,9 @@ public class CognitoAuthService {
         this.clientId = clientId;
     }
 
-    public void createUser(String username, String password) {
+    public String createUser(String username, String password) {
         assertConfigured();
-        cognitoClient.adminCreateUser(AdminCreateUserRequest.builder()
+        AdminCreateUserResponse response = cognitoClient.adminCreateUser(AdminCreateUserRequest.builder()
                 .userPoolId(userPoolId)
                 .username(username)
                 .temporaryPassword(password)
@@ -52,6 +54,21 @@ public class CognitoAuthService {
                 .password(password)
                 .permanent(true)
                 .build());
+        String sub = response.user().attributes().stream()
+                .filter(attribute -> "sub".equals(attribute.name()))
+                .map(attribute -> attribute.value())
+                .findFirst()
+                .orElseGet(() -> cognitoClient.adminGetUser(AdminGetUserRequest.builder()
+                                .userPoolId(userPoolId)
+                                .username(username)
+                                .build())
+                        .userAttributes()
+                        .stream()
+                        .filter(attribute -> "sub".equals(attribute.name()))
+                        .map(attribute -> attribute.value())
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("Cognito user sub was not returned")));
+        return sub;
     }
 
     public void deleteUser(String username) {

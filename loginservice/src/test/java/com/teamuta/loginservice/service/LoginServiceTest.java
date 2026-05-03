@@ -38,13 +38,17 @@ class LoginServiceTest {
     void registerCreatesCognitoUserAndPersistsOutboxEvent() {
         LoginService loginService = new LoginService(loginRepository, objectMapper, cognitoAuthService);
         when(loginRepository.existsByUsername("member1")).thenReturn(false);
+        when(cognitoAuthService.createUser("member1", "Password123!")).thenReturn("cognito-sub-1");
 
         LoginResponse.User user = loginService.register("member1", "Password123!");
 
         assertThat(user.username()).isEqualTo("member1");
         verify(cognitoAuthService).createUser("member1", "Password123!");
-        verify(loginRepository).saveUser(eq(user.id()), eq("member1"), any(String.class), any(LocalDateTime.class));
-        verify(loginRepository).saveOutboxEvent(any(String.class), eq("user"), eq(user.id()), eq("UserRegistered"), any(String.class), eq("PENDING"), anyLong());
+        verify(loginRepository).saveUser(eq(user.id()), eq("member1"), eq("cognito-sub-1"), any(String.class), any(LocalDateTime.class));
+        ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
+        verify(loginRepository).saveOutboxEvent(any(String.class), eq("user"), eq(user.id()), eq("UserRegistered"), payload.capture(), eq("PENDING"), anyLong());
+        assertThat(payload.getValue()).contains("\"cognitoSub\":\"cognito-sub-1\"");
+        assertThat(payload.getValue()).contains("\"eventVersion\":2");
         verify(cognitoAuthService, never()).deleteUser("member1");
     }
 
@@ -52,9 +56,10 @@ class LoginServiceTest {
     void registerDeletesCognitoUserWhenLocalTransactionFails() {
         LoginService loginService = new LoginService(loginRepository, objectMapper, cognitoAuthService);
         when(loginRepository.existsByUsername("member1")).thenReturn(false);
+        when(cognitoAuthService.createUser("member1", "Password123!")).thenReturn("cognito-sub-1");
         doThrow(new IllegalStateException("db down"))
                 .when(loginRepository)
-                .saveUser(any(String.class), eq("member1"), any(String.class), any(LocalDateTime.class));
+                .saveUser(any(String.class), eq("member1"), any(String.class), any(String.class), any(LocalDateTime.class));
 
         assertThatThrownBy(() -> loginService.register("member1", "Password123!"))
                 .isInstanceOf(IllegalStateException.class)
@@ -65,11 +70,21 @@ class LoginServiceTest {
     }
 
     @Test
+    void findByCognitoSubReturnsMappedInternalUser() {
+        LoginService loginService = new LoginService(loginRepository, objectMapper, cognitoAuthService);
+        when(loginRepository.findByCognitoSub("cognito-sub-1")).thenReturn(Optional.of(new UserRecord("user-1", "member1", "cognito-sub-1")));
+
+        Optional<UserRecord> user = loginService.findByCognitoSub("cognito-sub-1");
+
+        assertThat(user).contains(new UserRecord("user-1", "member1", "cognito-sub-1"));
+    }
+
+    @Test
     void loginReturnsLocalUserAndCognitoTokens() {
         LoginService loginService = new LoginService(loginRepository, objectMapper, cognitoAuthService);
         CognitoAuthService.AuthTokens authTokens = new CognitoAuthService.AuthTokens("access-token", "id-token", "refresh-token", 3600);
         when(cognitoAuthService.login("member1", "Password123!")).thenReturn(authTokens);
-        when(loginRepository.findByUsername("member1")).thenReturn(Optional.of(new UserRecord("user-1", "member1")));
+        when(loginRepository.findByUsername("member1")).thenReturn(Optional.of(new UserRecord("user-1", "member1", "cognito-sub-1")));
 
         LoginResponse response = loginService.login("member1", "Password123!");
 
